@@ -763,39 +763,40 @@ const ChatbotPage = () => {
   const currentQuestion = currentAssessment?.questions[currentQuestionIndex];
 
   return (
-    <div className={`h-screen flex flex-col ${
+    <div className={`h-screen flex flex-col overflow-hidden ${
       theme === 'dark' ? 'bg-gray-900' : 'bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50'
     }`}>
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`p-4 border-b ${
-            theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-          } shadow-lg`}
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className={`text-xl font-bold ${
-                theme === 'dark' ? 'text-white' : 'text-gray-800'
-              }`}>
-                AI Mental Health Assistant
-              </h1>
-              <p className={`text-sm ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}>
-                Your personalized companion for mental wellness support and therapy planning
-              </p>
-            </div>
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`flex-shrink-0 p-4 border-b ${
+          theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+        } shadow-lg`}
+      >
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+            <Bot className="w-6 h-6 text-white" />
           </div>
-        </motion.div>
+          <div>
+            <h1 className={`text-xl font-bold ${
+              theme === 'dark' ? 'text-white' : 'text-gray-800'
+            }`}>
+              AI Mental Health Assistant
+            </h1>
+            <p className={`text-sm ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Your personalized companion for mental wellness support and therapy planning
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Messages Area - Scrollable */}
+      <div className={`flex-1 overflow-y-auto p-6 space-y-6 ${
+        theme === 'dark' ? 'bg-gray-900' : 'bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50'
+      }`}>
           {messages.map((message) => (
             <motion.div
               key={message.id}
@@ -1174,12 +1175,13 @@ const ChatbotPage = () => {
             </motion.div>
           )}
         </AnimatePresence>
-        </div>
+      </div>
 
-        {/* Input Area */}
-        <div className={`p-4 border-t ${
-          theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-        }`}>
+      {/* Input Area - Fixed at Bottom */}
+      <div className={`flex-shrink-0 border-t ${
+        theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+      }`}>
+        <div className="p-4">
           {waitingForResponse && chatbotAssessment && (
             <div className={`mb-2 text-sm ${
               theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
