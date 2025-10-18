@@ -73,6 +73,8 @@ const ChatbotPage = () => {
     currentIndex: number;
   } | null>(null);
   const [waitingForResponse, setWaitingForResponse] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState<string>('');
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const mentalHealthIssues = [
     { id: 'anxiety-disorders', name: 'Anxiety Disorders', icon: Brain, color: 'from-blue-500 to-cyan-500', description: 'Persistent worry, fear, and anxiety symptoms' },
@@ -354,6 +356,76 @@ const ChatbotPage = () => {
 
   const [currentTextResponse, setCurrentTextResponse] = useState('');
 
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  // Load chat session on mount
+  useEffect(() => {
+    const loadChatSession = () => {
+      const savedSession = localStorage.getItem(`mindcare_chat_session_${user?.id}`);
+      if (savedSession) {
+        const session = JSON.parse(savedSession);
+        const sessionMessages = session.messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(sessionMessages);
+        setChatSessionId(session.id);
+        setGeneratedPlan(session.plan || null);
+      } else {
+        // Create new session
+        const newSessionId = Date.now().toString();
+        setChatSessionId(newSessionId);
+        // Initial greeting
+        const initialMessage: Message = {
+          id: '1',
+          type: 'bot',
+          content: `Hello ${user?.name}! I'm your AI mental health assistant. I'm here to provide personalized support and create a therapy plan tailored just for you.\n\nWould you like me to help you identify the best therapy approach for your current needs?`,
+          timestamp: new Date()
+        };
+        setMessages([initialMessage]);
+        saveChatSession(newSessionId, [initialMessage], null);
+      }
+    };
+
+    if (user?.id) {
+      loadChatSession();
+    }
+  }, [user?.id]);
+
+  // Save chat session to localStorage
+  const saveChatSession = (sessionId: string, msgs: Message[], plan: TherapyPlan | null) => {
+    const session = {
+      id: sessionId,
+      userId: user?.id,
+      messages: msgs,
+      plan: plan,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(`mindcare_chat_session_${user?.id}`, JSON.stringify(session));
+  };
+
+  // Check if therapy plan is completed
+  const isTherapyCompleted = () => {
+    const userProgress = localStorage.getItem('mindcare_user_progress');
+    if (!userProgress) return true;
+
+    const progress = JSON.parse(userProgress);
+    if (!progress.currentPlan) return true;
+
+    const startDate = new Date(progress.startDate);
+    const currentDate = new Date();
+    const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    return daysPassed >= progress.currentPlan.planDuration;
+  };
+
   const therapyModules = {
     'cbt': { title: 'CBT Thought Records', icon: Brain, color: 'from-purple-500 to-pink-500' },
     'mindfulness': { title: 'Mindfulness & Breathing', icon: Brain, color: 'from-blue-500 to-cyan-500' },
@@ -367,17 +439,6 @@ const ChatbotPage = () => {
     'act': { title: 'Acceptance & Commitment Therapy', icon: Star, color: 'from-teal-500 to-cyan-500' }
   };
 
-  useEffect(() => {
-    // Initial greeting
-    const initialMessage: Message = {
-      id: '1',
-      type: 'bot',
-      content: `Hello ${user?.name}! I'm your AI mental health assistant. I'm here to provide personalized support and create a therapy plan tailored just for you.\n\nWould you like me to help you identify the best therapy approach for your current needs?`,
-      timestamp: new Date()
-    };
-    setMessages([initialMessage]);
-  }, [user]);
-
   const addMessage = (content: string, type: 'user' | 'bot') => {
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -385,7 +446,11 @@ const ChatbotPage = () => {
       content,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => {
+      const updatedMessages = [...prev, newMessage];
+      saveChatSession(chatSessionId, updatedMessages, generatedPlan);
+      return updatedMessages;
+    });
   };
 
   const simulateTyping = async (content: string, type: 'bot' | 'user' = 'bot'): Promise<void> => {
@@ -695,12 +760,48 @@ const ChatbotPage = () => {
     };
 
     localStorage.setItem('mindcare_user_progress', JSON.stringify(userProgress));
-    
+
+    // Save the plan with the chat session
+    saveChatSession(chatSessionId, messages, generatedPlan);
+
     toast.success('Therapy plan accepted! You can now start your personalized journey.');
     setShowPlanSelection(false);
-    
+
     // Navigate to therapies page
     navigate('/therapy-modules');
+  };
+
+  // Start a new chat session
+  const startNewChat = () => {
+    if (!isTherapyCompleted()) {
+      toast.error('Please complete your current therapy plan before starting a new assessment.');
+      return;
+    }
+
+    // Clear current session
+    localStorage.removeItem(`mindcare_chat_session_${user?.id}`);
+
+    // Create new session
+    const newSessionId = Date.now().toString();
+    setChatSessionId(newSessionId);
+
+    const initialMessage: Message = {
+      id: '1',
+      type: 'bot',
+      content: `Hello ${user?.name}! I'm your AI mental health assistant. I'm here to provide personalized support and create a therapy plan tailored just for you.\n\nWould you like me to help you identify the best therapy approach for your current needs?`,
+      timestamp: new Date()
+    };
+
+    setMessages([initialMessage]);
+    setGeneratedPlan(null);
+    setShowPlanSelection(false);
+    setChatbotAssessment(null);
+    setWaitingForResponse(false);
+    setCurrentAssessment(null);
+    setCurrentQuestionIndex(0);
+
+    saveChatSession(newSessionId, [initialMessage], null);
+    toast.success('New chat session started!');
   };
 
   const handleSendMessage = () => {
@@ -860,6 +961,9 @@ const ChatbotPage = () => {
               </div>
             </motion.div>
           )}
+
+          {/* Scroll anchor */}
+          <div ref={messagesEndRef} />
 
           {/* Issue Selection */}
           {!currentAssessment && !showPlanSelection && !waitingForResponse && !chatbotAssessment && (
@@ -1233,6 +1337,20 @@ const ChatbotPage = () => {
             >
               View Progress
             </button>
+            {generatedPlan && (
+              <button
+                onClick={startNewChat}
+                className={`px-3 py-1 rounded-full text-sm transition-all duration-300 flex items-center gap-1 ${
+                  isTherapyCompleted()
+                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                disabled={!isTherapyCompleted()}
+              >
+                <RotateCcw className="w-3 h-3" />
+                Start New Chat
+              </button>
+            )}
           </div>
         </div>
       </div>
